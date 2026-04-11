@@ -1,0 +1,16 @@
+# OS artifacts
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+
+# Obsidian/vault artifacts
+.omc/
+.obsidian/
+.trash/
+*.tmp
+.omx/
+
+.env
+.env.*
+*.log
