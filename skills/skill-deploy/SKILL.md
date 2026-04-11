@@ -46,7 +46,6 @@ VAULT="/Users/beomsu/Documents/01. Obsidian/Ataraxia/55. Tools/03 Skills/{skill-
 DEST="$REPO/skills/{skill-name}"
 mkdir -p "$DEST"
 cp "$VAULT/SKILL.md" "$DEST/"
-cp "$VAULT/{skill-name}.md" "$DEST/"
 for dir in scripts references assets; do
   [ -d "$VAULT/$dir" ] && rsync -a "$VAULT/$dir/" "$DEST/$dir/"
 done
