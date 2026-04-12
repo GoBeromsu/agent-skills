@@ -11,7 +11,7 @@ Operate the clawhip event-routing daemon running on m1-pro. This skill captures 
 clawhip's role in the stack: it is the "무대 매니저" (stage manager) — it watches tmux sessions, git/github events, and agent lifecycle, then routes notifications to Discord. It does not execute code or make decisions; it observes and reports.
 
 ## When to Use
-- Stale notifications firing on idle tmux sessions (e.g., `maestro-work pane 0.0 stale for 10m`)
+- Stale notifications firing on idle tmux sessions (e.g., `maestro-work pane 0.0 stale for 30m`)
 - Need to list, stop, or restart tmux watches on m1-pro
 - Injecting prompts into an OMX tmux session via `clawhip deliver`
 - Adding or modifying event routing rules in `~/.clawhip/config.toml`
@@ -79,21 +79,30 @@ clawhip tmux watch -s <session-name> \
 ```
 
 **Restart monitoring with adjusted thresholds:**
+
+Before re-registering, kill old watch processes — new registration does not terminate old PIDs:
+```bash
+# Find and kill old watch processes for this session
+ps aux | grep 'clawhip.*tmux.*watch.*<session-name>' | grep -v grep | awk '{print $2}' | xargs kill
+```
+
+Then register the new watch:
 ```bash
 clawhip tmux watch -s <session-name> \
   --mention '<@discord-user-id>' \
-  --keywords 'error,PR created,complete,FAILED' \
-  --stale-minutes <minutes> \
-  --format alert
+  --keywords 'FAILED,panic,BLOCKED,PR created,PR merged' \
+  --stale-minutes 30
 ```
+
+Keyword selection: clawhip matches **case-insensitively**. Avoid generic words like `error` (matches code analysis text) or `complete` (matches OMX hook messages like `SessionStart hook (completed)`). Use specific failure/success signals only.
 
 **Create a new monitored session** (when starting fresh work):
 ```bash
 clawhip tmux new -s <session-name> \
   --channel <discord-channel-id> \
   --mention '<@discord-user-id>' \
-  --keywords 'error,PR created,complete,FAILED' \
-  --stale-minutes 10 \
+  --keywords 'FAILED,panic,BLOCKED,PR created,PR merged' \
+  --stale-minutes 30 \
   -- '<shell-command>'
 ```
 
@@ -117,6 +126,9 @@ For architecture diagrams, troubleshooting (삽질 기록), daemon lifecycle, an
 | "I'll just kill the tmux session to stop alerts." | Killing the session loses the OMX runtime. Disable or reconfigure the watch instead. |
 | "Channel ID is not sensitive." | Discord channel IDs combined with bot tokens enable message injection. Use placeholders. |
 | "I can edit config.toml from the local machine." | config.toml lives on m1-pro. SSH in first. |
+| "Re-registering the watch replaces the old one." | `clawhip tmux watch` starts a new process but does NOT kill the old one. Old PIDs keep firing with stale keywords. Kill old processes first. |
+| "`Error:` will only match actual errors." | Keyword matching is case-insensitive. `Error:` matches `error` anywhere in code analysis text. Use `FAILED`, `panic` instead. |
+| "`complete` will catch task completions." | Also matches OMX hook messages like `SessionStart hook (completed)`. Use `PR created` or `PR merged` for completion signals. |
 
 ## Red Flags
 - Tailscale IP addresses (100.x.x.x), Discord tokens, or channel IDs appear in output
@@ -124,6 +136,9 @@ For architecture diagrams, troubleshooting (삽질 기록), daemon lifecycle, an
 - tmux session killed to resolve stale alerts instead of reconfiguring the watch
 - Config changes attempted on local machine instead of m1-pro
 - `[[monitors.git]]` TOML syntax used in config (event-based, not polling)
+- Watch re-registered without killing old PIDs first (causes duplicate notifications with stale keywords)
+- Generic keywords like `error` or `complete` used (high false-positive rate due to case-insensitive matching)
+- OMX started without `--madmax --high` in headless tmux session
 
 ## Verification
 After completing the workflow, confirm:

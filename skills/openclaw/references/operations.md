@@ -30,9 +30,9 @@ OpenClaw is the "지휘자" (conductor): receives Discord/Telegram/Slack message
 | SOUL.md | 말투, 톤, 스타일 ("voice, stance, and style") | workspace root |
 | IDENTITY.md | 이름, 이모지, 아바타 (메타데이터) | workspace root |
 | AGENTS.md | 운영 규칙 ("operating rules") | workspace root |
-| TOOLS.md | 로컬 설정 (SSH hosts, API keys) | agent dir |
-| USER.md | 사용자 선호/맥락 | agent dir |
-| HEARTBEAT.md | 주기적 체크 항목 | agent dir |
+| TOOLS.md | 로컬 설정 (SSH hosts, API keys) | workspace root |
+| USER.md | 사용자 선호/맥락 | workspace root |
+| HEARTBEAT.md | 주기적 체크 항목 | workspace root |
 | MEMORY.md | 장기 기억 (main session only) | workspace root |
 
 - 개별 파일 최대 20KB (`agents.defaults.bootstrapMaxChars`)
@@ -91,3 +91,35 @@ The obsidian CLI binary locations on m1-pro:
 
 ### Gateway is launchd-managed
 Unlike clawhip (nohup, pending migration), OpenClaw Gateway runs under launchd and auto-restarts on crash or reboot. Do not manage it with nohup or manual process control.
+
+### BOOTSTRAP.md vs AGENTS.md
+- **BOOTSTRAP.md** = one-time file. Deleted after initial bootstrapping. Do NOT put persistent operational rules here.
+- **AGENTS.md** = loaded every session. All persistent rules (dispatch logic, session naming, mandatory flags) go here.
+- Putting rules in BOOTSTRAP.md causes them to disappear after the first session. This was a common early mistake.
+
+### Maestro OMX Dispatch — 지능형 릴레이 패턴
+OpenClaw maestro acts as an intelligent relay: Discord message → maestro (LLM) judges intent → selects OMX skill → executes `clawhip deliver --session maestro-work --prompt '$skill "..."'` → clawhip injects into tmux → OMX runs.
+
+AGENTS.md must contain explicit dispatch rules:
+- **Session name**: Fixed to `maestro-work` (prevents maestro from inventing names like `maestro-globalcheck`)
+- **Mandatory flags**: `omx --madmax --high` (without `--madmax`, all MCP tool calls fail with "user cancelled" in headless mode)
+- **Skill selection**: Table mapping request types to skills (`$ralph` for implementation, `$deep-interview` for exploration, `$ralplan` for planning, `$team N:executor` for parallel work)
+- **Forbidden patterns**: `$executor` and `$architect` are agent roles, not standalone skills
+
+### Session reset after AGENTS.md changes
+Modifying AGENTS.md requires both Gateway restart and session clearing:
+1. Gateway restart: `launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`
+2. Session clear: `rm ~/.openclaw/agents/<name>/sessions/*.jsonl`
+3. Session cleanup: `openclaw sessions cleanup --agent <name> --fix-missing --enforce`
+Without this, existing sessions continue using the cached old AGENTS.md.
+
+### Workspace directory structure
+workspace and code repo must be separate. If workspace points directly at the code repo, bootstrap files mix into the repo.
+```
+~/.openclaw/workspace/obsidian-maestro/       ← workspace (bootstrap files)
+├── AGENTS.md, IDENTITY.md, SOUL.md, TOOLS.md, USER.md
+└── obsidian-workspace/                       ← code repo (submodule monorepo)
+
+~/.openclaw/agents/obsidian-maestro/agent/    ← runtime only (auth, sessions)
+```
+The workspace path is set in `openclaw.json` → `agents.list[].workspace`.

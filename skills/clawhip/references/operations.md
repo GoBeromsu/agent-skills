@@ -41,3 +41,27 @@ When adding a new channel for routing, the channel must also be registered in th
 - `clawhip deliver` refuses arbitrary shells — it requires repo-local prompt-submit-aware hook setup.
 - Install hooks first: `clawhip hooks install --all --scope project`
 - deliver retries Enter keypresses (bounded by `--max-enters`) until `.clawhip/state/prompt-submit.json` changes.
+
+### Keyword matching is case-insensitive
+clawhip keyword matching ignores case. `Error:` also matches `error`, `ERROR`, etc. This causes massive false positives when code analysis text contains the word "error". Recommended keyword set: `FAILED,panic,BLOCKED,PR created,PR merged`. Avoid: `error`, `Error:`, `complete`, `done`.
+
+### Watch process stacking
+`clawhip tmux watch` spawns a **new background process** per registration. It does NOT replace or kill previous watches for the same session. If you re-register a watch, old processes continue firing with their original keywords. Always kill old PIDs before re-registering:
+```bash
+ps aux | grep 'clawhip.*tmux.*watch.*<session-name>' | grep -v grep | awk '{print $2}' | xargs kill
+clawhip tmux watch -s <session-name> --keywords '...' --stale-minutes 30
+```
+
+### OMX process tree cleanup
+Sending `exit` to a tmux pane may not kill the full OMX process tree (codex binary, MCP servers, explore harnesses, notify watchers). To cleanly restart OMX:
+```bash
+# Find all OMX-related processes
+ps aux | grep -E 'omx|oh-my-codex' | grep -v grep
+# Kill the main omx process and its children
+kill <omx-pid> <codex-pid> <mcp-pids...>
+# Then start fresh in the tmux pane
+tmux send-keys -t <session-name> 'omx --madmax --high' Enter
+```
+
+### Recommended stale interval
+Default stale is 10 minutes — too noisy for long-running OMX sessions. Use 30 minutes for active work sessions. Use `--stale-minutes 0` to disable stale alerts entirely for monitoring-only watches.

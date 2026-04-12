@@ -36,7 +36,7 @@ Sync source skills to the repo-scope deployment directory.
 
 ```bash
 VAULT="/Users/beomsu/Documents/01. Obsidian/Ataraxia/55. Tools/03 Skills"
-DEST="/Users/beomsu/Documents/01. Obsidian/Ataraxia/.claude/skills"
+DEST="/Users/beomsu/Documents/01. Obsidian/.claude/skills"
 
 # Sync each skill that already has a deployed copy
 for skill_dir in "$DEST"/*/; do

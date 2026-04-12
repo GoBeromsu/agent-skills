@@ -19,6 +19,8 @@ Vault reference: `Ataraxia/50. AI/04 Workspaces/OpenClaw/` contains workspace de
 - Cleaning up deprecated agents and their resources (e.g., GSoC-related agents)
 - Resetting a Discord session to pick up bootstrap changes (SOUL.md, IDENTITY.md)
 - Updating agent skills in `~/.openclaw/skills/`
+- Configuring maestro's OMX dispatch rules in AGENTS.md
+- Verifying the relay chain: Discord → maestro → clawhip deliver → OMX
 - NOT for clawhip daemon operations (use `clawhip` skill)
 - NOT for OMX tmux session management (separate domain)
 - NOT for initial OpenClaw installation (use NotebookLM MCP docs)
@@ -60,7 +62,7 @@ openclaw agents add \
   --model <model-id>
 ```
 After adding, create bootstrap files in the workspace root:
-- `SOUL.md` — 말투, 톤, 성격 ("where your agent's voice lives"). 매 세션 첫 턴에 주입됨.
+- `SOUL.md` — 말투, 톤, 성격 ("where your agent's voice lives"). 매 턴 주입됨.
 - `IDENTITY.md` — 이름, 이모지, 아바타 (메타데이터)
 - `AGENTS.md` — 운영 규칙
 - `TOOLS.md` — 로컬 설정 (SSH hosts, API keys)
@@ -149,20 +151,25 @@ vi <workspace-path>/IDENTITY.md
 openclaw agents set-identity --agent <name> --from-identity
 ```
 
-**변경 반영 — Discord 세션 리셋:**
-기존 Discord 세션은 이전 bootstrap을 캐시하고 있으므로 transcript를 삭제해야 새 세션이 시작된다.
+**변경 반영 — Gateway 재시작 + 세션 리셋:**
+Gateway가 bootstrap 파일을 메모리에 캐시하므로, 파일 수정 후 반드시 Gateway를 재시작해야 한다. 세션 리셋만으로는 부족.
 ```bash
-# 1. 세션 ID 확인
+# 1. Gateway 재시작 (필수)
+launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway
+sleep 5
+curl -s http://127.0.0.1:18789/health   # 정상 확인
+
+# 2. 세션 ID 확인
 openclaw sessions --agent <name> --json
 
-# 2. transcript 백업 후 삭제
+# 3. transcript 백업 후 삭제
 cp ~/.openclaw/agents/<name>/sessions/<session-id>.jsonl /tmp/<backup-name>.jsonl
 rm ~/.openclaw/agents/<name>/sessions/<session-id>.jsonl
 
-# 3. sessions.json 정리
+# 4. sessions.json 정리
 openclaw sessions cleanup --agent <name> --fix-missing --enforce
 ```
-다음 Discord 메시지에서 새 세션이 시작되며 SOUL.md가 주입된다. Gateway 재시작은 불필요.
+다음 Discord 메시지에서 새 세션이 시작되며 새 SOUL.md가 주입된다.
 
 **CLI에서 테스트:**
 ```bash
@@ -170,7 +177,37 @@ openclaw sessions cleanup --agent <name> --fix-missing --enforce
 openclaw agent --agent <name> --session-id test-$(date +%s) --message '테스트 메시지'
 ```
 
-### 8. Agent cleanup workflow (e.g., GSoC removal)
+### 8. Maestro OMX dispatch (지능형 릴레이)
+
+Maestro is an "intelligent relay" — it receives natural language from Discord, decides which OMX skill to use, and dispatches via clawhip deliver. Users never call OMX commands directly.
+
+**Dispatch chain:**
+```
+Discord → OpenClaw maestro → exec tool → clawhip deliver --session maestro-work --prompt '$skill "..."' → tmux send-keys → OMX
+```
+
+**AGENTS.md is the SSOT** for dispatch rules. Key rules to include:
+- Session name fixed to `maestro-work` (prevent maestro from inventing session names)
+- `omx --madmax --high` mandatory (headless MCP approval + max reasoning)
+- Skill selection table: when to use `$ralph` vs `$deep-interview` vs `$ralplan` vs `$team`
+- Forbidden patterns: `$executor` and `$architect` are NOT standalone skills
+
+**After modifying AGENTS.md:**
+```bash
+# 1. Gateway restart (picks up new workspace files)
+launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway
+sleep 5 && curl -s http://127.0.0.1:18789/health
+
+# 2. Clear existing sessions (forces fresh context with new AGENTS.md)
+rm ~/.openclaw/agents/<agent-name>/sessions/*.jsonl
+openclaw sessions cleanup --agent <agent-name> --fix-missing --enforce
+```
+
+**BOOTSTRAP.md vs AGENTS.md:**
+- BOOTSTRAP.md = one-time (deleted after first run). Do NOT put operational rules here.
+- AGENTS.md = loaded every session. All persistent rules go here.
+
+### 9. Agent cleanup workflow (e.g., GSoC removal)
 
 When deprecating an agent or project-specific resources:
 
@@ -227,9 +264,13 @@ For architecture diagrams, agent composition, session protocol, heartbeat vs cro
 |---|---|
 | "The agent will pick up the new channel binding immediately." | The binding is registered but the channel must also be in the guild allowlist. Without it, responses are silently dropped. |
 | "I can skip IDENTITY.md for a quick test." | The agent will respond with the wrong identity, confusing users and polluting conversation history. Always create it. |
-| "SOUL.md를 수정했으니 바로 반영될 거야." | Bootstrap은 매 턴 주입되지만, 기존 Discord 세션은 캐시된 bootstrap을 사용한다. transcript 삭제 후 새 세션을 시작해야 반영된다. |
+| "SOUL.md를 수정했으니 바로 반영될 거야." | Gateway가 bootstrap 파일을 메모리에 캐시한다. 파일 수정 후 반드시 Gateway 재시작(`launchctl kickstart`) + 세션 리셋이 필요. |
+| "세션 리셋만 하면 SOUL.md 변경이 반영될 거야." | 세션 리셋(transcript 삭제)은 새 세션을 시작하지만, Gateway가 캐시한 옛날 bootstrap을 그대로 주입한다. Gateway 재시작이 선행되어야 한다. |
 | "agentDir에 IDENTITY.md를 넣으면 되지." | Bootstrap 파일은 workspace 디렉토리에서 로딩된다. agentDir는 세션/인증 등 런타임 상태 전용. workspace 경로는 `openclaw.json`의 `agents.list[].workspace`로 확인. |
 | "말투는 IDENTITY.md에 넣으면 되지." | IDENTITY.md는 이름/이모지/아바타 메타데이터 전용. 말투/톤/성격은 SOUL.md에 넣어야 한다. |
+| "BOOTSTRAP.md에 운영 규칙을 넣으면 되지." | BOOTSTRAP.md는 일회성(삭제됨). 매 세션 로딩되는 AGENTS.md에 넣어야 한다. |
+| "AGENTS.md를 수정하면 바로 반영되지." | 기존 세션은 이전 AGENTS.md를 캐시한다. Gateway 재시작 + 세션 삭제로 새 세션을 강제해야 반영. |
+| "maestro가 알아서 올바른 OMX 플래그를 쓰겠지." | AGENTS.md에 `--madmax --high` 강제 규칙이 없으면 maestro가 플래그 없이 세션을 시작한다. 명시적 규칙 필수. |
 | "Removing the agent from the CLI is enough." | Cron entries, channel bindings, filesystem artifacts, and vault references all need separate cleanup. |
 | "I'll manage the gateway process manually." | Gateway is launchd-managed. Use launchctl, not kill/nohup. |
 
@@ -240,6 +281,8 @@ For architecture diagrams, agent composition, session protocol, heartbeat vs cro
 - Cron entries left orphaned after agent removal
 - Gateway managed via nohup instead of launchctl
 - PATH not exported in cron scripts that use obsidian CLI
+- Bootstrap 파일 수정 후 Gateway 재시작 없이 Discord/메신저에서 테스트
+- CLI에서만 테스트하고 Discord 검증을 건너뜀 (CLI는 direct session, Discord는 group session으로 동작이 다를 수 있음)
 
 ## Verification
 After completing the workflow, confirm:
@@ -249,4 +292,5 @@ After completing the workflow, confirm:
 - [ ] If agent added: IDENTITY.md, SOUL.md, USER.md exist in **workspace** directory (not agentDir)
 - [ ] If channel bound: channel appears in guild allowlist
 - [ ] If agent removed: no orphaned cron entries, channel bindings cleaned, filesystem artifacts removed
+- [ ] If bootstrap files modified: Gateway 재시작 완료 (`launchctl kickstart -k gui/$(id -u)/ai.openclaw.gateway`)
 - [ ] Gateway health check passes: `curl -s http://127.0.0.1:18789/health`
