@@ -2,16 +2,17 @@
 name: youtube-upload
 description: >-
   Upload an mp4 video to YouTube with auto-generated metadata, custom thumbnail,
-  and SEO-optimized description with timestamps. Extracts English transcript via
-  mlx-audio (Qwen3-ASR), generates title/description/tags/chapters from the
-  transcript, creates a branded thumbnail (face photo + hook text, optionally
-  over an Obsidian graph view background), uploads via YouTube Data API v3, and
-  creates a tracked vault note in Obsidian. Use when the user says "upload
-  video", "youtube upload", "영상 업로드", "publish video", or provides an mp4
-  path with upload intent. Also triggers on "영상 올려", "업로드 해줘", or when
-  the user drops an mp4 file path in conversation. Do NOT use for downloading,
-  clipping, or ingesting OTHER people's videos (use /youtube for that). Do NOT
-  use for YouTube Shorts (blog-writer handles those).
+  SEO-optimized description with timestamps, and multi-language localization.
+  Extracts transcript via mlx-audio (Qwen3-ASR), generates bilingual
+  title/description/tags/chapters (English + Korean), creates a branded
+  thumbnail (face photo + hook text, optionally over an Obsidian graph view
+  background), uploads via YouTube Data API v3 with language metadata and
+  localizations, and creates a tracked vault note in Obsidian. Use when the user
+  says "upload video", "youtube upload", "영상 업로드", "publish video", or
+  provides an mp4 path with upload intent. Also triggers on "영상 올려",
+  "업로드 해줘", or when the user drops an mp4 file path in conversation. Do NOT
+  use for downloading, clipping, or ingesting OTHER people's videos (use
+  /youtube for that). Do NOT use for YouTube Shorts (blog-writer handles those).
 ---
 
 # YouTube Upload Pipeline
@@ -21,14 +22,17 @@ thumbnail, and SEO-optimized description, then track it in the Obsidian vault.
 
 ## Overview
 
-Pipeline: mp4 → ffmpeg audio extraction → transcript (mlx-audio) → metadata +
-chapters + thumbnail → YouTube upload + set thumbnail → vault note.
+Pipeline: mp4 → ffmpeg audio extraction → transcript (mlx-audio) → bilingual
+metadata + chapters + thumbnail → YouTube upload + language/localization → vault note.
 
 Every upload gets:
-- A branded thumbnail: face photo with bold English hook text, optionally over
+- A branded thumbnail: face photo with bold hook text, optionally over
   an Obsidian graph view background
 - An SEO-optimized description with timestamps/chapters generated from the
   transcript
+- Bilingual metadata: primary language matching the spoken audio, plus a
+  localized version in the other language (English ↔ Korean)
+- Language metadata (`defaultAudioLanguage`) to enable YouTube auto-dubbing
 - Automatic vault note tracking at `12. Area/Youtube/`
 
 ## When to Use
@@ -49,6 +53,9 @@ Every upload gets:
   - `--playlist-id ID` — add to a playlist after upload
   - `--thumbnail-text "HOOK"` — override generated hook text
   - `--background` — use graph view background for thumbnail (default: face-only)
+  - `--language <code>` — original spoken language of the video (default: auto-detected from transcript). Sets `defaultAudioLanguage` on YouTube.
+  - `--localize-ko "제목" "설명"` — override Korean localized title/description
+  - `--localize-en "title" "desc"` — override English localized title/description
 
 ## Pipeline
 
@@ -82,7 +89,12 @@ Parse the JSON and save `transcript` and `duration_seconds` for the next steps.
 ### 2. Generate metadata
 
 From the transcript, generate YouTube metadata yourself (do NOT call a separate
-script). Generate all of these:
+script). Determine the spoken language from the transcript's `language` field
+(or from `--language` if provided). Generate all metadata in the **primary
+language** (matching the spoken audio), then generate a **localized version** in
+the other language (English ↔ Korean).
+
+**Primary metadata** (in the spoken language):
 
 **Title** (up to 90 characters):
 - Clear, specific, curiosity-triggering
@@ -110,15 +122,25 @@ Timestamps:
 Chapters must start at 0:00, have at least 3 entries, and each be at least 10
 seconds apart. Derive timestamps from the transcript's natural topic shifts.
 
-**Tags** (5-12 relevant keywords as comma-separated list)
+**Tags** (5-12 relevant keywords as comma-separated list, include both languages)
 
 **Thumbnail hook text** (3-5 word English hook):
 - Must complement the title, not repeat it
 - Use power words that trigger curiosity
 - Examples: "THIS CHANGES EVERYTHING", "10X FASTER", "CODE WHILE SLEEPING"
 
-If the user provided `--title`, `--description`, or `--thumbnail-text` overrides,
-use those instead of generating.
+**Localized metadata** (in the other language):
+
+Generate a localized title and description for the alternate language. YouTube
+displays these automatically to viewers whose language preference matches.
+- If spoken language is `en`: generate `ko` localized title + description
+- If spoken language is `ko`: generate `en` localized title + description
+- The localized description should be a natural translation, not a machine-literal one
+
+Save both primary and localized metadata for use in Steps 4 and 4.5.
+
+If the user provided `--title`, `--description`, `--thumbnail-text`,
+`--localize-ko`, or `--localize-en` overrides, use those instead of generating.
 
 ### 3. Generate thumbnail
 
@@ -161,8 +183,13 @@ uv run "$SKILL_DIR/scripts/upload.py" '<mp4_path>' \
   --description "<description>" \
   --tags "<tag1,tag2,...>" \
   --privacy public \
+  --language "<spoken_language_code>" \
   --thumbnail /tmp/yt_thumbnail.jpg
 ```
+
+The `--language` flag sets both `snippet.defaultLanguage` and
+`snippet.defaultAudioLanguage` on YouTube. This tells YouTube what language the
+video is spoken in, which is required for auto-dubbing to activate.
 
 This outputs JSON to stdout:
 ```json
@@ -176,6 +203,29 @@ If upload.py exits with error about missing credentials, tell the user:
 credentials first."
 
 If the thumbnail step was skipped, omit `--thumbnail` from the upload command.
+
+### 4.5. Language & Localization
+
+After upload succeeds, set localized titles and descriptions so YouTube shows
+the right metadata to viewers in each language. This uses the YouTube Data API
+`localizations` resource.
+
+```bash
+uv run "$SKILL_DIR/scripts/upload.py" --update "<video_id>" \
+  --localizations '{"ko": {"title": "<ko_title>", "description": "<ko_desc>"}, "en": {"title": "<en_title>", "description": "<en_desc>"}}'
+```
+
+The script calls `videos().update(part="localizations")` to set localized
+metadata without changing the primary snippet.
+
+**Auto-dubbing reminder**: After upload, remind the user:
+> To enable auto-dubbing, go to YouTube Studio → Settings → Content →
+> Automatic dubbing and toggle it on. This cannot be done via API.
+> Once enabled, YouTube will automatically generate dubbed audio tracks
+> for eligible videos based on the `defaultAudioLanguage` you set.
+
+Only show this reminder on the user's first upload, or if the language was
+explicitly set via `--language`.
 
 ### 5. Check for duplicates
 
@@ -212,7 +262,7 @@ obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=video_id value="<vid
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=source value="<youtube_url>" < /dev/null
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=date_published value="<YYYY-MM-DD>" < /dev/null
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=duration_seconds value="<duration>" < /dev/null
-obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=language value="en" < /dev/null
+obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=language value="<detected_or_specified_language>" < /dev/null
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=status value="done" < /dev/null
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=tags value="reference,reference/video,youtube/uploaded" type=list < /dev/null
 obsidian property:set vault=Ataraxia path="$NOTE_PATH" name=title value="<generated_title>" < /dev/null
@@ -229,9 +279,12 @@ these bypass the hook restriction.
 Report to the user:
 - Video uploaded: `<youtube_url>`
 - Privacy: `<privacy_status>`
+- Language: `<spoken_language>` (defaultAudioLanguage set)
+- Localizations: `<list of locale codes set, e.g., en + ko>`
 - Thumbnail: graph view / face-only / skipped
 - Vault note: `12. Area/Youtube/<title>.md`
 - MoC tracking: visible in 📚 802 Youtube
+- Auto-dubbing: remind if not previously mentioned
 
 ## Common Rationalizations
 
@@ -242,6 +295,8 @@ Report to the user:
 | "The hook text doesn't matter much." | The hook text is 70-80% of what makes someone click. 3-5 power words that trigger curiosity are non-negotiable. |
 | "A simple one-line description is enough." | Descriptions with timestamps, keywords, and links rank dramatically better in YouTube search. The extra 30 seconds of generation saves hours of obscurity. |
 | "I can skip chapters/timestamps." | YouTube uses chapters for search indexing and video navigation. Skipping them means losing free SEO and worse viewer retention. |
+| "Localization isn't worth the effort for a small channel." | YouTube serves localized titles/descriptions to viewers in their language preference automatically. A Korean viewer sees the Korean title; an English viewer sees the English one. This is free discoverability in two markets with zero extra distribution effort. |
+| "I'll set the language later in YouTube Studio." | Setting `defaultAudioLanguage` at upload time is the trigger for auto-dubbing eligibility. Doing it later means the video misses the initial recommendation window when YouTube's algorithm pushes new uploads. |
 
 ## Red Flags
 
@@ -253,6 +308,9 @@ Report to the user:
 - Thumbnail step is skipped without warning the user
 - Vault note created in 80. References/ instead of 12. Area/Youtube/
 - Transcript step skips ffmpeg extraction and fails on mp4 format
+- Upload completes without `defaultAudioLanguage` set
+- No localized metadata added (missing Korean or English localization)
+- Language auto-detected as wrong language and not corrected
 
 ## Verification
 
@@ -268,6 +326,10 @@ After completing the skill's process, confirm:
 - [ ] Custom thumbnail was set on YouTube
 - [ ] Duplicate check passed (no existing note with same video_id)
 - [ ] Vault note created at `12. Area/Youtube/`
+- [ ] Language was set via `--language` or auto-detected from transcript
+- [ ] `defaultAudioLanguage` and `defaultLanguage` were set on YouTube
+- [ ] Localized title/description added for the alternate language (en↔ko)
+- [ ] Auto-dubbing reminder shown to user (first upload or explicit --language)
 - [ ] Frontmatter is complete (type, video_id, source, date_published, duration_seconds, language, status, tags, title, description, image)
 
 ## Do NOT
@@ -352,6 +414,25 @@ If the manual browser consent is blocked (headless environment, expired token):
 
 - **Apostrophes in filenames.** When the generated title contains `'`, use template
   literals (backtick strings) in `obsidian eval` code to avoid shell quoting issues.
+
+- **Auto-dubbing cannot be enabled via the YouTube Data API v3.** It must be
+  toggled in YouTube Studio → Settings → Content → Automatic dubbing. Setting
+  `defaultAudioLanguage` via API is necessary but not sufficient — it tells
+  YouTube what language the audio is in, but the creator must opt in to dubbing
+  separately.
+
+- **Expressive Speech does NOT support Korean (as of 2026).** The tone/emotion
+  preservation feature only covers 8 languages: English, French, German, Hindi,
+  Indonesian, Italian, Portuguese, Spanish. Korean auto-dubs use the standard
+  (non-expressive) voice.
+
+- **Auto-dubbing eligibility requirements.** The video must be under 120 minutes,
+  have detectable speech, and the creator must have YouTube Partner Program or
+  advanced features enabled. Not all videos qualify.
+
+- **Multi-language audio track uploads are UI-only.** The YouTube Data API v3 has
+  no endpoint for uploading additional audio tracks. Use YouTube Studio →
+  Content → Edit video → Languages tab → Add dub for manual dub uploads.
 
 ## Transcript from existing YouTube videos (reference)
 

@@ -86,17 +86,24 @@ def get_credentials(credentials_path: Path, token_path: Path):
 
 
 def upload_video(youtube, video_path: str, title: str, description: str,
-                 tags: list, privacy: str, category_id: str = "22"):
+                 tags: list, privacy: str, category_id: str = "22",
+                 language: str = None):
     """Upload video with resumable upload. Returns video_id."""
     from googleapiclient.http import MediaFileUpload
 
+    snippet = {
+        "title": title,
+        "description": description,
+        "tags": tags,
+        "categoryId": category_id,
+    }
+
+    if language:
+        snippet["defaultLanguage"] = language
+        snippet["defaultAudioLanguage"] = language
+
     body = {
-        "snippet": {
-            "title": title,
-            "description": description,
-            "tags": tags,
-            "categoryId": category_id,
-        },
+        "snippet": snippet,
         "status": {
             "privacyStatus": privacy,
             "selfDeclaredMadeForKids": False,
@@ -148,6 +155,15 @@ def main():
                         help="YouTube category ID (default: 22 = People & Blogs)")
     parser.add_argument("--thumbnail", default=None,
                         help="Path to custom thumbnail JPEG (1280x720)")
+    parser.add_argument("--language", default=None,
+                        help="Spoken language code (e.g., 'en', 'ko'). Sets both "
+                             "defaultLanguage and defaultAudioLanguage.")
+    parser.add_argument("--localizations", default=None,
+                        help='JSON string of localizations, e.g., '
+                             '\'{"ko": {"title": "...", "description": "..."}}\'')
+    parser.add_argument("--update", default=None, metavar="VIDEO_ID",
+                        help="Update an existing video (no upload). Use with "
+                             "--localizations and/or --language.")
     parser.add_argument("--auth-only", action="store_true",
                         help="Run OAuth flow only, no upload")
     args = parser.parse_args()
@@ -166,8 +182,54 @@ def main():
         print(json.dumps({"status": "auth_complete", "token_path": str(token_path)}))
         return
 
+    from googleapiclient.discovery import build
+
+    youtube = build("youtube", "v3", credentials=creds)
+
+    # Update mode: modify existing video (localizations, language, thumbnail)
+    if args.update:
+        video_id = args.update
+        updates = {}
+
+        if args.language or args.localizations:
+            resp = youtube.videos().list(part="snippet,localizations", id=video_id).execute()
+            if not resp.get("items"):
+                print(f"ERROR: Video not found: {video_id}", file=sys.stderr)
+                sys.exit(1)
+
+            item = resp["items"][0]
+
+            if args.language:
+                snippet = item["snippet"]
+                snippet["defaultLanguage"] = args.language
+                snippet["defaultAudioLanguage"] = args.language
+                youtube.videos().update(
+                    part="snippet",
+                    body={"id": video_id, "snippet": snippet}
+                ).execute()
+                print(f"Language set: {args.language}", file=sys.stderr, flush=True)
+
+            if args.localizations:
+                localizations = json.loads(args.localizations)
+                existing = item.get("localizations", {})
+                existing.update(localizations)
+                youtube.videos().update(
+                    part="localizations",
+                    body={"id": video_id, "localizations": existing}
+                ).execute()
+                print(f"Localizations set: {list(localizations.keys())}", file=sys.stderr, flush=True)
+
+        if args.thumbnail:
+            set_thumbnail(youtube, video_id, args.thumbnail)
+
+        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+        output = {"status": "updated", "video_id": video_id, "youtube_url": youtube_url}
+        print(json.dumps(output, ensure_ascii=False))
+        return
+
+    # Upload mode
     if not args.input:
-        print("ERROR: Video file path required (or use --auth-only)", file=sys.stderr)
+        print("ERROR: Video file path required (or use --auth-only / --update)", file=sys.stderr)
         sys.exit(1)
 
     if not os.path.exists(args.input):
@@ -182,11 +244,8 @@ def main():
         print(f"ERROR: Thumbnail not found: {args.thumbnail}", file=sys.stderr)
         sys.exit(1)
 
-    from googleapiclient.discovery import build
-
     print(f"Uploading: {os.path.basename(args.input)}", file=sys.stderr, flush=True)
 
-    youtube = build("youtube", "v3", credentials=creds)
     tags_list = [t.strip() for t in args.tags.split(",") if t.strip()]
 
     video_id = upload_video(
@@ -197,10 +256,20 @@ def main():
         tags_list,
         args.privacy,
         args.category_id,
+        language=args.language,
     )
 
     if args.thumbnail:
         set_thumbnail(youtube, video_id, args.thumbnail)
+
+    # Apply localizations if provided
+    if args.localizations:
+        localizations = json.loads(args.localizations)
+        youtube.videos().update(
+            part="localizations",
+            body={"id": video_id, "localizations": localizations}
+        ).execute()
+        print(f"Localizations set: {list(localizations.keys())}", file=sys.stderr, flush=True)
 
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     print(f"Upload complete: {youtube_url}", file=sys.stderr, flush=True)
