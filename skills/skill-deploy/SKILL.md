@@ -58,6 +58,7 @@ git -C "$REPO" pull --rebase
 For each skill with `publish: true` in its metadata:
 
 ```bash
+VAULT="/Users/beomsu/Documents/01. Obsidian/Ataraxia/55. Tools/03 Skills"
 DEST="$REPO/skills/{skill-name}"
 mkdir -p "$DEST"
 cp "$VAULT/{skill-name}/SKILL.md" "$DEST/"
