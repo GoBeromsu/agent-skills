@@ -3,5 +3,14 @@
   "owner": {
     "name": "GoBeromsu"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "agent-skills",
+      "source": {
+        "source": "github",
+        "repo": "GoBeromsu/agent-skills"
+      },
+      "description": "Personal Claude Code skill collection by Beomsu Koh"
+    }
+  ]
 }
