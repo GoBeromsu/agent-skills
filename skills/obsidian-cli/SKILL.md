@@ -109,6 +109,14 @@ After vault file operations:
 - [ ] Old filename no longer resolves (`obsidian file file="<old-name>"` returns not found)
 - [ ] Backlinks still resolve (`obsidian backlinks file="<new-name>"`)
 
+## Known Limitations
+
+- **`search` / `search:context` returns empty results via CLI** — operators (`tag:`, `path:`, `file:`) are recognized but produce no output. Use `search:open` to delegate to Obsidian's UI, or use `qmd` for vault search instead.
+- **Batch operations freeze after ~400 ops** — health check every 40 operations with `obsidian eval code="'ping'"`. See `references/batch-operations.md` for the full pattern.
+- **Requires Obsidian.app to be running** — all commands fail silently or error without the app.
+
+For detailed workarounds and history, see `references/known-limitations.md`.
+
 ## Plugin development
 
 ### Develop/test cycle
