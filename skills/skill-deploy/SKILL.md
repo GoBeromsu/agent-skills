@@ -69,16 +69,32 @@ done
 
 Missing `SKILL.md` = error, skip that skill explicitly.
 
-### Step 4 — Commit and Push
+### Step 4 — Version Bump
+
+`claude plugins update` compares version strings — same version means no download, even if content changed on GitHub. Always bump the version when deploying content changes.
 
 ```bash
-git -C "$REPO" add skills/
+PLUGIN_JSON="$REPO/.claude-plugin/plugin.json"
+# Read current version, increment patch
+CURRENT=$(grep -o '"version": "[^"]*"' "$PLUGIN_JSON" | grep -o '[0-9]*\.[0-9]*\.[0-9]*')
+MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+MINOR=$(echo "$CURRENT" | cut -d. -f2)
+PATCH=$(echo "$CURRENT" | cut -d. -f3)
+NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+sed -i '' "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" "$PLUGIN_JSON"
+echo "Version: $CURRENT → $NEW_VERSION"
+```
+
+### Step 5 — Commit and Push
+
+```bash
+git -C "$REPO" add skills/ .claude-plugin/plugin.json
 git -C "$REPO" diff --cached --quiet && echo "Already up to date." && exit 0
 git -C "$REPO" commit -m "deploy: sync skills from vault ($(date +%Y-%m-%d))"
 git -C "$REPO" push origin main
 ```
 
-### Step 5 — Report
+### Step 6 — Report
 
 ```
 GitHub Deployed (N):
@@ -101,11 +117,13 @@ Verify remote: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].na
 | "I'll just run plugins update later, it's fine." | Run it immediately after push. A stale machine is an invisible bug. |
 | "The push succeeded so m1-pro is up to date." | Push updates GitHub only. Each machine must explicitly run `claude plugins update`. |
 | "I'll edit the deployed plugin cache directly, it's faster." | Plugin cache is overwritten on next `plugins update`. Always edit in `55. Tools/03 Skills/`. |
+| "I pushed to GitHub so `plugins update` will pick it up." | `plugins update` compares version strings only. Same version = no download. Always bump `.claude-plugin/plugin.json` version before pushing. |
 
 ## Red Flags
 
 - `git push` without `git pull --rebase` first
-- `git add .` instead of `git add skills/`
+- `git add .` instead of `git add skills/ .claude-plugin/plugin.json`
+- Pushing without bumping `.claude-plugin/plugin.json` version
 - No deployment summary at the end
 - Editing plugin cache copies instead of SSOT (`55. Tools/03 Skills/`)
 
@@ -114,7 +132,8 @@ Verify remote: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].na
 After completing the workflow, confirm:
 
 - [ ] Each GitHub-deployed skill has `publish: true` in its `{skill-name}.md` metadata
-- [ ] `git diff --cached --stat` shows only `skills/` paths
+- [ ] `.claude-plugin/plugin.json` version was incremented
+- [ ] `git diff --cached --stat` shows `skills/` and `.claude-plugin/plugin.json` paths only
 - [ ] Remote confirmed: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].name'`
 - [ ] Deployment report printed with deployed/skipped counts
 - [ ] `claude plugins update agent-skills@beomsu-koh` exits 0
