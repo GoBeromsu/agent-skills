@@ -25,6 +25,22 @@ obsidian eval code="'ping'"
 
 The return value is serialized and printed to stdout. Complex objects may need `.toString()` or `JSON.stringify()`.
 
+**Getting return values:** `eval` prints the result of the evaluated expression. Single expressions work directly (`code="app.vault.getFiles().length"`), but multi-statement code needs an IIFE — top-level `return` is illegal, and a bare trailing expression produces no output.
+
+```bash
+# Single expression — works directly
+obsidian eval code="app.vault.getFiles().length"
+
+# Multi-statement — MUST use IIFE
+obsidian eval code="(()=>{const files=app.vault.getMarkdownFiles();const count=files.filter(f=>f.path.startsWith('15.')).length;return count;})()"
+
+# Top-level return — ERROR: Illegal return statement
+obsidian eval code="const x=1; return x;"
+
+# Bare trailing expression — SILENT (no output)
+obsidian eval code="const x=1; x;"
+```
+
 ## dev:errors
 
 Show captured errors.

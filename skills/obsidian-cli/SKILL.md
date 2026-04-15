@@ -105,8 +105,9 @@ obsidian sync:status
 # Base (database) queries
 obsidian base:query file="Projects" view="Active" format=md
 
-# Developer / eval
+# Developer / eval (use IIFE for multi-statement: code="(()=>{...return val;})()")
 obsidian eval code="app.vault.getFiles().length"
+obsidian eval code="(()=>{const f=app.vault.getMarkdownFiles();return f.filter(x=>x.path.startsWith('15.')).length;})()"
 obsidian dev:errors
 obsidian dev:screenshot path=screenshot.png
 ```
@@ -144,6 +145,7 @@ Read the relevant reference file when you need detailed parameter info, examples
 | "I'll use Read tool to read the note" | `obsidian read` returns resolved content including transclusions. Use it for vault notes. |
 | "I need the exact path so I'll use `path=`" | `file=` resolves like a wikilink — name only works fine and is less fragile when notes move. |
 | "I'll search with grep/qmd instead of obsidian search" | `obsidian search` is currently broken (returns empty). Use `qmd` or `search:open` as workarounds. This rationalization is actually correct for now. |
+| "I'll use `return` or a bare expression in `eval`" | Top-level `return` throws `Illegal return statement`; bare trailing expressions produce no output. Wrap multi-statement code in an IIFE: `code="(()=>{...return val;})()"`. |
 
 ## Red Flags
 
