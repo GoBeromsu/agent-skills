@@ -1,13 +1,13 @@
 ---
 name: skill-deploy
-description: Sync vault skills to local .claude/skills/ and push publishable ones to GoBeromsu/agent-skills on GitHub. Use when the user says "/skill-deploy", "스킬 배포", "publish skills", "스킬 동기화", "sync skills", or wants to update deployed skills from the vault SSOT. Also triggers after skill improvements or batch skill edits.
+description: Push publishable skills from vault SSOT to GoBeromsu/agent-skills on GitHub. Use when the user says "/skill-deploy", "스킬 배포", "publish skills", or wants to update deployed skills from the vault SSOT. Also triggers after skill improvements or batch skill edits.
 ---
 
 # skill-deploy
 
 ## Overview
 
-Full skill deployment pipeline: sync SSOT (`55. Tools/03 Skills/`) to local `.claude/skills/` directories, then push publishable skills to GitHub. Vault is the single source of truth — deployed copies are always overwritten from source.
+Push publishable skills from vault SSOT to GitHub. GitHub is the single source of truth — each machine pulls updates via `claude plugins update agent-skills@beomsu-koh`.
 
 ## When to Use
 
@@ -18,7 +18,16 @@ Full skill deployment pipeline: sync SSOT (`55. Tools/03 Skills/`) to local `.cl
 
 ## Prerequisites
 
-`gh` CLI authenticated (`gh auth status`), `rsync` available.
+`gh` CLI authenticated (`gh auth status`).
+
+## Private Skills Note
+
+Skills without `publish: true` in their metadata are **vault-only** and are not pushed to GitHub. They are not delivered via `claude plugins update`. If needed on non-vault machines, copy manually from the vault SSOT.
+
+| Status | Skills |
+|--------|--------|
+| `publish: true` (via marketplace) | brian-note-challenge, clawhip, obsidian-cli, openclaw, pdf2md, skill-deploy |
+| Vault-only (not pushed) | book, channel-ingest, deploy-quartz, fyc, gws, naver, obsidian-vault-doctor, rize, terminology, youtube-upload, zotero |
 
 ## Process
 
@@ -30,41 +39,7 @@ For each subdirectory:
 1. Verify `SKILL.md` exists (skip directories without it)
 2. Check `{skill-name}/{skill-name}.md` for `publish: true` → mark as GitHub-publishable
 
-### Step 2 — Local Sync (SSOT → .claude/skills/)
-
-Sync source skills to the repo-scope deployment directory.
-
-```bash
-VAULT="/Users/beomsu/Documents/01. Obsidian/Ataraxia/55. Tools/03 Skills"
-DEST="/Users/beomsu/Documents/01. Obsidian/.claude/skills"
-
-# Sync each skill that already has a deployed copy
-for skill_dir in "$DEST"/*/; do
-  skill=$(basename "$skill_dir")
-  if [ -f "$VAULT/$skill/SKILL.md" ]; then
-    cp "$VAULT/$skill/SKILL.md" "$DEST/$skill/"
-    for dir in scripts references assets; do
-      if [ -d "$VAULT/$skill/$dir" ]; then
-        rsync -a --delete "$VAULT/$skill/$dir/" "$DEST/$skill/$dir/"
-      fi
-    done
-  else
-    echo "⚠ $skill — deployed but no SSOT source"
-  fi
-done
-```
-
-After sync, verify each updated skill:
-```bash
-for skill_dir in "$DEST"/*/; do
-  skill=$(basename "$skill_dir")
-  [ -f "$VAULT/$skill/SKILL.md" ] && diff -q "$VAULT/$skill/SKILL.md" "$DEST/$skill/SKILL.md"
-done
-```
-
-Skills deployed without SSOT source are flagged — ask the user whether to remove or create source.
-
-### Step 3 — Prepare GitHub Repo
+### Step 2 — Prepare GitHub Repo
 
 ```bash
 REPO="${AGENT_SKILLS_REPO_PATH:-$HOME/dev/agent-skills}"
@@ -78,7 +53,7 @@ fi
 git -C "$REPO" pull --rebase
 ```
 
-### Step 4 — Copy Publishable Skills to Repo
+### Step 3 — Copy Publishable Skills to Repo
 
 For each skill with `publish: true` in its metadata:
 
@@ -87,13 +62,13 @@ DEST="$REPO/skills/{skill-name}"
 mkdir -p "$DEST"
 cp "$VAULT/{skill-name}/SKILL.md" "$DEST/"
 for dir in scripts references assets; do
-  [ -d "$VAULT/{skill-name}/$dir" ] && rsync -a "$VAULT/{skill-name}/$dir/" "$DEST/$dir/"
+  [ -d "$VAULT/{skill-name}/$dir" ] && cp -r "$VAULT/{skill-name}/$dir/" "$DEST/$dir/"
 done
 ```
 
 Missing `SKILL.md` = error, skip that skill explicitly.
 
-### Step 5 — Commit and Push
+### Step 4 — Commit and Push
 
 ```bash
 git -C "$REPO" add skills/
@@ -102,18 +77,18 @@ git -C "$REPO" commit -m "deploy: sync skills from vault ($(date +%Y-%m-%d))"
 git -C "$REPO" push origin main
 ```
 
-### Step 6 — Report
+### Step 5 — Report
 
 ```
-Local Sync:
-  ✓ skill-name — synced
-  ⚠ skill-name — no SSOT source (orphan)
-
 GitHub Deployed (N):
   ✓ skill-name
 
 GitHub Skipped (M):
-  ⊘ skill-name — reason
+  ⊘ skill-name — reason (e.g. publish: false)
+
+To apply on each machine:
+  local:   claude plugins update agent-skills@beomsu-koh
+  m1-pro:  ssh m1-pro claude plugins update agent-skills@beomsu-koh
 ```
 
 Verify remote: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].name'`
@@ -122,26 +97,24 @@ Verify remote: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].na
 
 | Rationalization | Reality |
 |---|---|
-| "The deployed copy is newer, I'll skip syncing from SSOT." | SSOT is always authoritative. If the deployed copy has useful changes, move them to SSOT first, then sync. |
-| "I'll just edit .claude/skills/ directly, it's faster." | Direct edits to deployed copies are overwritten on next sync. Always edit in 55. Tools/03 Skills/. |
-| "This skill doesn't need local sync, it's only for GitHub." | Local sync ensures the agent actually uses the latest version. GitHub push without local sync means your own environment is stale. |
-| "I'll clean up orphan skills later." | Orphan deployed skills with no SSOT source cause confusion — flag and resolve immediately. |
+| "I'll just run plugins update later, it's fine." | Run it immediately after push. A stale machine is an invisible bug. |
+| "The push succeeded so m1-pro is up to date." | Push updates GitHub only. Each machine must explicitly run `claude plugins update`. |
+| "I'll edit the deployed plugin cache directly, it's faster." | Plugin cache is overwritten on next `plugins update`. Always edit in `55. Tools/03 Skills/`. |
 
 ## Red Flags
 
 - `git push` without `git pull --rebase` first
 - `git add .` instead of `git add skills/`
-- Editing deployed copies (.claude/skills/) instead of SSOT (55. Tools/03 Skills/)
 - No deployment summary at the end
-- Skipping local sync and only pushing to GitHub
+- Editing plugin cache copies instead of SSOT (`55. Tools/03 Skills/`)
 
 ## Verification
 
 After completing the workflow, confirm:
 
-- [ ] All repo-scope deployed skills match SSOT: `diff` returns 0 for every synced SKILL.md
-- [ ] Orphan skills (deployed without SSOT) flagged or resolved
 - [ ] Each GitHub-deployed skill has `publish: true` in its `{skill-name}.md` metadata
 - [ ] `git diff --cached --stat` shows only `skills/` paths
 - [ ] Remote confirmed: `gh api repos/GoBeromsu/agent-skills/contents/skills --jq '.[].name'`
-- [ ] Deployment report printed with sync/deployed/skipped counts
+- [ ] Deployment report printed with deployed/skipped counts
+- [ ] `claude plugins update agent-skills@beomsu-koh` exits 0
+- [ ] No direct writes to `.claude/skills/` occurred during this run
