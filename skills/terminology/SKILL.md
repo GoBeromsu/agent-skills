@@ -13,7 +13,7 @@ description: >
 
 ## Overview
 
-Create or maintain terminology notes in `50. AI/02 Terminologies/`. The SSOT for this skill's prompt and template is `55. Tools/03 Skills/terminology/SKILL.md`. The canonical template is at `references/template.md` (exact extraction from the SSOT prompt). Handles variant detection, boilerplate cleanup, and duplicate merging via obsidian CLI. Produces one note; does not modify neighboring notes.
+Create or maintain terminology notes in `50. AI/02 Terminologies/`. The SSOT for this skill's prompt and template is `50. AI/04 Skills/terminology/SKILL.md`. The canonical template is at `references/template.md` (exact extraction from the SSOT prompt). Handles variant detection, boilerplate cleanup, and duplicate merging via obsidian CLI. Produces one note; does not modify neighboring notes.
 
 ## When to Use
 

@@ -257,7 +257,7 @@ curl -s http://127.0.0.1:18789/health   # Gateway still healthy
 
 ## Reference
 
-For architecture diagrams, agent composition, session protocol, heartbeat vs cron, and troubleshooting (삽질 기록), see [references/operations.md](references/operations.md).
+For architecture diagrams, agent composition, session protocol, heartbeat vs cron, and troubleshooting (삽질 기록), see [references/operations.md](50.%20AI/04%20Skills/openclaw/references/operations.md).
 
 ## Common Rationalizations
 | Rationalization | Reality |

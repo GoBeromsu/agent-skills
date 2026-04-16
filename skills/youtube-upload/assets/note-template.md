@@ -12,7 +12,7 @@ and assessing the transcript.
 
 ## Feedback
 
-Feedback is generated based on [youtube-best-practices.md](../references/youtube-best-practices.md).
+Feedback is generated based on [youtube-best-practices.md](youtube-best-practices.md).
 Assess from two perspectives: English language quality and YouTube content quality.
 
 ### English (CEFR Assessment)

@@ -117,7 +117,7 @@ clawhip send --channel <channel-id> --message "test: clawhip watch reconfigured"
 
 ## Reference
 
-For architecture diagrams, troubleshooting (삽질 기록), daemon lifecycle, and deliver safety details, see [references/operations.md](references/operations.md).
+For architecture diagrams, troubleshooting (삽질 기록), daemon lifecycle, and deliver safety details, see [references/operations.md](50.%20AI/04%20Skills/clawhip/references/operations.md).
 
 ## Common Rationalizations
 | Rationalization | Reality |

@@ -11,6 +11,23 @@ description: Use the gws CLI to interact with Google Workspace services — Driv
 
 Install: `npm install -g @googleworkspace/cli` or `brew install googleworkspace-cli`
 
+## When to Use
+
+Use this skill when Google Workspace work should stay CLI-first and machine-readable instead of drifting into ad-hoc browser steps.
+
+- User needs to work with Google Drive, Calendar, Gmail, Sheets, Docs, Forms, or Chat from the command line
+- User asks about `gws` setup, login failures, OAuth scopes, headless auth export, or service-account usage
+- User needs structured JSON output for scripting or agent automation instead of manual browser steps
+- Do not use when the task is purely about in-vault note editing with no Google Workspace dependency
+
+## Process
+
+Follow this short sequence before issuing service-specific commands so auth, schema, and output expectations are grounded.
+
+1. Verify authentication with a minimal command before doing real work.
+2. Pick the target service and inspect `gws <service> --help` or `gws schema ...` before guessing parameters.
+3. Run the helper or raw Discovery method, then check JSON output and exit code.
+
 ## Authentication — Start Here
 
 Authentication must be set up before any commands work. Check status first:

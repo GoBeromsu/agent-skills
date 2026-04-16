@@ -14,7 +14,7 @@ argument-hint: "90. Settings/01 Guideline/ [--phase inspect|execute|review] [--s
 
 ## Overview
 
-Three-phase vault-health audit: INSPECT (read-only diagnostics) → EXECUTE (safe auto-fixes + judgment proposals) → REVIEW (re-run diagnostics, compare before/after). Guidelines live at `90. Settings/01 Guideline/` (files `00`–`07`). Read guidelines fresh every run — no caching. Bundled scripts at `55. Tools/03 Skills/obsidian-vault-doctor/scripts/`. Run them directly; do not regenerate with the model.
+Three-phase vault-health audit: INSPECT (read-only diagnostics) → EXECUTE (safe auto-fixes + judgment proposals) → REVIEW (re-run diagnostics, compare before/after). Guidelines live at `90. Settings/01 Guideline/` (files `00`–`07`). Read guidelines fresh every run — no caching. Bundled scripts at `50. AI/04 Skills/obsidian-vault-doctor/scripts/`. Run them directly; do not regenerate with the model.
 
 ## When to Use
 
@@ -52,19 +52,19 @@ export TYPE_TAG_MAP_JSON='{...}'
 export FOLDER_TYPE_RULES_JSON='{"folders":[...],"index_type":"...","date_prefix_type":"...","default_type":"...","suffix_overrides":{...}}'
 ```
 
-Refer to `55. Tools/03 Skills/obsidian-vault-doctor/assets/env-vars-template.json` for the exact JSON shape and source mapping. After exporting, print a summary to verify counts against the guidelines.
+Refer to `50. AI/04 Skills/obsidian-vault-doctor/assets/env-vars-template.json` for the exact JSON shape and source mapping. After exporting, print a summary to verify counts against the guidelines.
 
 #### Step 1.2 — Run Diagnostic Scripts
 
 All 7 env vars from Step 1.1 must be exported before running scripts.
 
 ```bash
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-frontmatter.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-tags.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-types.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-moc.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-yaml.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
-bash "55. Tools/03 Skills/obsidian-vault-doctor/scripts/inspect-overview.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-frontmatter.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-tags.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-types.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-moc.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-yaml.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
+bash "50. AI/04 Skills/obsidian-vault-doctor/scripts/inspect-overview.sh" "/Users/beomsu/Documents/01. Obsidian/Ataraxia"
 ```
 
 Run all 6 in parallel (separate Bash calls in one message). `frontmatter_parser.py` is the shared Python helper used by multiple scripts.
@@ -140,7 +140,7 @@ Without `--auto`: use subagents for large-scale judgment fixes. With `--auto`: r
 
 #### Step 2.3 — Save Fix Scripts
 
-Save executed fix commands to `55. Tools/03 Skills/obsidian-vault-doctor/scripts/` for reuse.
+Save executed fix commands to `50. AI/04 Skills/obsidian-vault-doctor/scripts/` for reuse.
 
 ### Phase 3: REVIEW (read-only)
 
@@ -205,5 +205,5 @@ After completing the workflow, confirm:
 - [ ] Auto-fixes limited to deterministic safe patterns (bundled `fix-*.sh` scripts)
 - [ ] Post-fix inspect scripts reran and showed delta
 - [ ] Judgment fixes proposed but not auto-applied (without `--auto`)
-- [ ] Fix scripts saved to `55. Tools/03 Skills/obsidian-vault-doctor/scripts/` for reuse
+- [ ] Fix scripts saved to `50. AI/04 Skills/obsidian-vault-doctor/scripts/` for reuse
 - [ ] Final report separates fixed, remaining, and manual-review items

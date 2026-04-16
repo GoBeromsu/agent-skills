@@ -46,7 +46,7 @@ cp "NOTE_FILE.md" "$QUARTZ_REPO_PATH/content/Articles/"
 
 # Process Eagle images if needed (only if file:/// paths present)
 cd "$QUARTZ_REPO_PATH"
-node "55. Tools/03 Skills/deploy-quartz/scripts/process-eagle-images.mjs"
+node "50. AI/04 Skills/deploy-quartz/scripts/process-eagle-images.mjs"
 
 # Build
 npx quartz build
@@ -62,7 +62,7 @@ git push origin v5
 ### Full Deploy (via script)
 
 ```bash
-"55. Tools/03 Skills/deploy-quartz/scripts/deploy.sh"
+"50. AI/04 Skills/deploy-quartz/scripts/deploy.sh"
 ```
 
 The `deploy.sh` script handles:

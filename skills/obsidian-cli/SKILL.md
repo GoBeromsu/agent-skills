@@ -5,7 +5,9 @@ description: Interact with Obsidian vaults using the Obsidian CLI to read, creat
 
 # Obsidian CLI
 
-Use the `obsidian` CLI to interact with a running Obsidian instance. Requires Obsidian to be open.
+## Overview
+
+Use the `obsidian` CLI to interact with a running Obsidian instance for vault note operations, metadata edits, and plugin/runtime debugging. Requires Obsidian to be open.
 
 ## Command reference
 
@@ -56,6 +58,14 @@ obsidian vault=Ataraxia search query="test"
 **NOT for:**
 - Reading files outside the vault (use Read tool)
 - Batch file operations on non-markdown assets (use Bash)
+
+## Process
+
+Use this loop to keep vault operations precise and reversible.
+
+1. Target the correct vault and note first with `vault=`, `file=`, or `path=`.
+2. Prefer the dedicated `obsidian` command (`rename`, `move`, `property:set`, etc.) over shell-side file edits.
+3. Verify the result with a follow-up `obsidian` read/query command before concluding.
 
 ## Common patterns
 
