@@ -1,6 +1,6 @@
 ---
 name: make-skill
-description: Author a new agent-skill for this vault — wrap Anthropic's `skill-creator` with the vault's own Skill Guideline so every new skill lands correctly wired for Obsidian SSOT, `skill-deploy`, and the `{skill-name}.md` metadata stub. Use when the user says "make a skill", "스킬 만들자", "/make-skill", "turn this workflow into a skill", or asks to create, scaffold, or extract a reusable skill from the current session into `50. AI/04 Skills/`.
+description: Author a new agent-skill for this vault, OR update an existing one — wrap Anthropic's `skill-creator` with the vault's own Skill Guideline so every skill lands correctly wired for Obsidian SSOT, `skill-deploy`, and the `{skill-name}.md` metadata stub. Use when the user says "make a skill", "스킬 만들자", "/make-skill", "turn this workflow into a skill", "fix this skill", "update this skill", "edit this skill", or asks to create, scaffold, extract, or update a reusable skill in `50. AI/04 Skills/`.
 ---
 
 # make-skill
@@ -17,7 +17,6 @@ Creating a publishable skill from scratch is a repeated workflow: (1) run Anthro
 - User wants to turn an existing prompt/template into a skill
 
 **NOT for:**
-- Editing an existing skill that already has SKILL.md — edit directly, or use Anthropic's `skill-creator` for its eval loop
 - Creating prompts under `70. Collections/02 Prompt/` — those are the process SSOT, not the agent-facing wrapper
 - Creating templates under `90. Settings/02 Templates/` — those are the format SSOT
 
@@ -43,7 +42,27 @@ Run both checks at the top of the run, in parallel. Do not proceed to Capture In
 
 ## Workflow
 
-### 1. Capture intent (from Anthropic skill-creator)
+### 1. Detect mode (create vs update)
+
+Before anything else, check whether the target skill already exists:
+
+```bash
+SKILL_DIR="/Users/beomsu/Documents/01. Obsidian/Ataraxia/50. AI/04 Skills/<skill-name>"
+test -f "$SKILL_DIR/SKILL.md" && echo "UPDATE" || echo "CREATE"
+```
+
+**Update mode** (file exists):
+- Read the current `SKILL.md` in full.
+- Apply the user-specified changes: new sections, rewording, rule additions, trigger phrase updates, etc.
+- Preserve the `name` frontmatter field exactly as it is.
+- Bump `date_modified` in the `{skill-name}.md` stub to today's date.
+- Skip steps 3 (scaffold directory) and 5 (write stub from scratch) — directory and stub already exist.
+- Continue from step 2 (read guideline) → step 4 (draft/edit SKILL.md) → step 7 (hand off).
+
+**Create mode** (file does not exist):
+- Continue with the full workflow below (steps 2–7).
+
+### 2. Capture intent (from Anthropic skill-creator)
 
 Pull context from the current conversation first. The user may have just run the workflow they want captured, in which case the tools, sequence, inputs, and corrections are already visible — extract them before asking. Confirm:
 
@@ -52,7 +71,9 @@ Pull context from the current conversation first. The user may have just run the
 - What's the expected output?
 - Are there objectively verifiable outputs that would benefit from `skill-creator`'s eval loop?
 
-### 2. Read the guideline and the skill-creator
+Invoke `Skill('skill-creator:skill-creator')` at this step, passing the current conversation context as input and the Skill Guideline path (`$GUIDE`) as the `location` argument.
+
+### 3. Read the guideline and the skill-creator
 
 Read both in parallel before writing anything:
 
@@ -61,7 +82,7 @@ Read both in parallel before writing anything:
 
 When the two disagree, the vault Skill Guideline wins. Specifically: **body is English-only**, sections follow the vault layout (Overview / When to Use / Workflow / Common Rationalizations / Red Flags / Verification), and every publishable skill has a `{skill-name}.md` stub with `publish: true`.
 
-### 3. Scaffold the directory
+### 4. Scaffold the directory
 
 ```
 50. AI/04 Skills/<skill-name>/
@@ -73,11 +94,11 @@ When the two disagree, the vault Skill Guideline wins. Specifically: **body is E
 
 Name rules (from the guideline): `lowercase-hyphen-separated`, no abbreviation, directory name matches `name` frontmatter field.
 
-### 4. Draft SKILL.md
+### 5. Draft SKILL.md
 
 Follow Anthropic's writing patterns (imperative form, progressive disclosure, concrete examples) and the vault's required sections. The `description` frontmatter is the primary trigger — include both *what* and *when*, and add realistic user phrases (English **and** Korean where the skill serves a Korean-speaking user). Keep the description under 1024 characters.
 
-### 5. Write the vault stub
+### 6. Write the vault stub
 
 ```markdown
 ---
@@ -92,14 +113,14 @@ publish: true
 
 `publish: true` makes the skill pickable by `skill-deploy`. Leaving it off (or setting `false`) keeps the skill vault-internal.
 
-### 6. Optional: evals
+### 7. Optional: evals
 
 For skills with objectively verifiable outputs (file transforms, data extraction, fixed workflow steps), offer to run Anthropic's eval loop from `skill-creator` to measure triggering accuracy and output quality. Skip for subjective outputs (writing style, design taste) — the iteration cost isn't worth it.
 
-### 7. Hand off
+### 8. Hand off
 
-- Point the user at the new skill path
-- If `publish: true`, remind them to run `/skill-deploy` to fan out to GitHub + Claude Code plugin + openclaw mirror
+- Point the user at the skill path (new or updated).
+- If `publish: true`, auto-invoke `Skill("skill-deploy")` to fan out to GitHub + Claude Code plugin + openclaw mirror — do not merely remind the user, invoke it directly.
 
 ## Common Rationalizations
 
@@ -122,11 +143,14 @@ For skills with objectively verifiable outputs (file transforms, data extraction
 
 ## Verification
 
+- [ ] Mode correctly detected (create vs update)
 - [ ] Both dependency checks returned OK before any file was written
-- [ ] Directory created at `50. AI/04 Skills/<skill-name>/`
+- [ ] Directory created at `50. AI/04 Skills/<skill-name>/` (create mode only)
 - [ ] `SKILL.md` frontmatter `name` matches the directory name
+- [ ] In update mode: original `name` frontmatter preserved exactly
+- [ ] In update mode: `date_modified` in `{skill-name}.md` stub bumped to today
 - [ ] `description` covers *what* + *when* and contains the real user phrases
 - [ ] SKILL.md body is English-only (Korean allowed only inline inside example strings)
 - [ ] `{skill-name}.md` stub exists with `type: skill` and the intended `publish` value
 - [ ] Reference files created only when inline content would exceed ~100 lines
-- [ ] If `publish: true`, user reminded to run `/skill-deploy`
+- [ ] On `publish: true`, `Skill("skill-deploy")` was auto-invoked (not just mentioned)
