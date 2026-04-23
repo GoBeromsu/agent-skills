@@ -1,0 +1,36 @@
+# obsidian-plugin-doctor registry
+# Keyed by plugin-id (string in manifest.json).
+# Rules:
+#   - version_seen: updated on every run where installed version is newer than recorded.
+#   - key_patterns: append-only; entries are never removed unless the API is gone.
+#   - antipatterns and known_regressions: append-only; never blank these lists.
+#   - New plugins are appended as new top-level keys; existing keys are never replaced wholesale.
+
+templater-obsidian:
+  repo: https://github.com/silentvoid13/Templater
+  docs: https://silentvoid13.github.io/Templater/
+  version_seen: 2.19.3
+  key_patterns:
+    entry_block: "<%* ... %>"
+    output_append: "tR +="
+    prompt: "await tp.system.prompt('label', 'default')"
+    suggester: "await tp.system.suggester(labelFor, items, false, placeholder, undefined, SENTINEL)"
+    move_file: "await tp.file.move('folder/NewName')"
+    rename_file: "await tp.file.rename('NewName')"
+    current_title: "tp.file.title"
+  antipatterns:
+    - "<% bareVar %>  # undefined in Templater's JS scope → ReferenceError"
+    - "<% newName %>  # concrete instance of bareVar antipattern in 90. Settings/02 Templates/manual/project.init.template.md — newName has no binding in Templater expression scope; fix is to rewrite to <%* ... %> entry block with await tp.system.prompt() and tR +="
+  known_regressions:
+    - version: "2.19.1"
+      id: suggester-empty
+      note: "SuggesterModal.onOpen() skips super.onOpen(); list renders empty unless default_value triggers the input event. Source: 90. Settings/02 Templates/manual/project.log.template.md lines 55-68."
+      fix: "Pass a SENTINEL symbol as default_value whose label is the empty string ('') to force the initial render without pre-filling the search box. The sentinel is never in items so it never appears as a selectable row. Example: const SENTINEL = Symbol('suggester-bootstrap'); await tp.system.suggester(labelFor, candidates, false, 'placeholder', undefined, SENTINEL)."
+
+notebook-navigator:
+  repo: https://github.com/johansan/notebook-navigator
+  docs: https://notebooknavigator.com/docs.html
+  version_seen: null
+  key_patterns: {}
+  antipatterns: []
+  known_regressions: []
