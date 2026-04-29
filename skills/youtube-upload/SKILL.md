@@ -236,20 +236,88 @@ obsidian search vault=Ataraxia query="video_id: <video_id>"
 If a note already exists with this video_id, warn the user and skip note
 creation. Report the existing note path.
 
+### 5.5. Generate Feedback section
+
+From the transcript, generate the `## Feedback` content yourself (do NOT call a
+separate script — same pattern as Step 2 metadata generation). Use
+`assets/note-template.md` as the structural template and
+`references/youtube-best-practices.md` as the rubric.
+
+**Language branch**: If the transcript language is NOT `en`, set the entire
+`### English (CEFR Assessment)` body to a single italic placeholder
+(`*N/A — non-English video*`) — the paraphrase/correction guidance only makes
+sense for English-spoken videos. Still fill in `### YouTube (Content Assessment)`
+and `### Action Items` normally.
+
+For English videos, the section MUST contain (in this exact order):
+
+- `### English (CEFR Assessment)` with:
+  - `**Level**: A1-C2` estimate
+  - `**Youglish 추천**: 3-5 words`
+  - `#### 잘한 점` — 2-5 nested bullets, each with a sub-bullet citing a
+    transcript moment when useful
+  - `#### 아쉬운 점` — 2-5 nested bullets, high-level patterns only (specific
+    fixes go under 영어 표현 교정)
+  - `#### Paraphrase 추천` — target 3-7 entries. Each entry MUST follow this
+    nested-bullet shape exactly:
+    ```
+    - 원문: "<verbatim phrase from transcript>"
+      - 대안1: "<more natural rewrite>"
+      - 대안2: "<alternative tone/register>"   # optional but encouraged
+      - 왜: <1-line rationale>
+    ```
+    Pick phrases that are NOT grammatically wrong but feel awkward, repetitive,
+    or low-register for YouTube delivery.
+  - `#### 영어 표현 교정` — target 3-7 entries. Each entry MUST follow this
+    nested-bullet shape exactly:
+    ```
+    - "<wrong phrase>" → "<corrected phrase>"
+      - 이유: <grammar rule or usage convention>
+    ```
+    Pick phrases that are objectively wrong (grammar, article, tense, collocation).
+- `### YouTube (Content Assessment)` — keep the existing template structure
+  unchanged (잘한 점 / 아쉬운 점, flat bullets).
+- `### Action Items` — 2-5 task checkboxes synthesizing the most actionable
+  items from both English and YouTube sections.
+
+**Two placeholders, two distinct cases** — do not mix:
+- Whole-subsection skip (non-English video): set the entire `### English`
+  body to `*N/A — non-English video*` (handled by the language branch above).
+- Individual zero-candidate H4 (e.g., no Paraphrase candidates found in an
+  English video): emit a single italic bullet inside that H4:
+  `- *없음 — 검토할 만한 항목이 발견되지 않았습니다*`
+
+For videos longer than 1 hour, warn the user that Feedback generation adds an
+extra 1-2 minutes on top of the transcription wait.
+
+Save the rendered Feedback markdown (everything from `### English` through the
+end of `### Action Items`) to `/tmp/yt_upload_feedback.md` for use in Step 6.
+
 ### 6. Create vault note
 
-Write the transcript to a temp file first (avoids shell ARG_MAX for long videos):
+Write transcript and feedback to temp files first (avoids shell ARG_MAX for long
+videos), then assemble the note body with Feedback BEFORE Transcript:
 
 ```bash
 cat > /tmp/yt_upload_transcript.md << 'TRANSCRIPT_EOF'
-## Transcript
-
 <transcript_text>
 TRANSCRIPT_EOF
 
+# Step 5.5 must have produced a non-empty feedback file.
+[ -s /tmp/yt_upload_feedback.md ] || { echo "ERROR: feedback file missing/empty — rerun Step 5.5" >&2; exit 1; }
+
+# Assemble inline — `<<'EOF'` would NOT expand $(cat ...) (see Caveats).
 obsidian create vault=Ataraxia \
   path="15. Work/02 Area/Youtube/<title>.md" \
-  content="$(cat /tmp/yt_upload_transcript.md)"
+  content="$({
+    echo "## Feedback"
+    echo
+    cat /tmp/yt_upload_feedback.md
+    echo
+    echo "## Transcript"
+    echo
+    cat /tmp/yt_upload_transcript.md
+  })"
 ```
 
 Then set frontmatter properties (key=value syntax, NOT --flag style):
@@ -311,6 +379,9 @@ Report to the user:
 - Upload completes without `defaultAudioLanguage` set
 - No localized metadata added (missing Korean or English localization)
 - Language auto-detected as wrong language and not corrected
+- Vault note created without a `## Feedback` section
+- Paraphrase or Corrections lists use flat bullets instead of nested ones
+- `## Transcript` appears above `## Feedback` in the vault note
 
 ## Verification
 
@@ -331,6 +402,11 @@ After completing the skill's process, confirm:
 - [ ] Localized title/description added for the alternate language (en↔ko)
 - [ ] Auto-dubbing reminder shown to user (first upload or explicit --language)
 - [ ] Frontmatter is complete (type, video_id, source, date_published, duration_seconds, language, status, tags, title, description, image)
+- [ ] Feedback section was generated in Step 5.5
+- [ ] Vault note has `## Feedback` BEFORE `## Transcript`
+- [ ] English section has all 4 H4 subsections: 잘한 점 / 아쉬운 점 / Paraphrase 추천 / 영어 표현 교정
+- [ ] Paraphrase entries follow `원문 / 대안1 / (대안2) / 왜` nested bullet shape
+- [ ] Corrections entries follow `"wrong" → "right" / 이유` nested bullet shape
 
 ## Do NOT
 
@@ -414,6 +490,13 @@ If the manual browser consent is blocked (headless environment, expired token):
 
 - **Apostrophes in filenames.** When the generated title contains `'`, use template
   literals (backtick strings) in `obsidian eval` code to avoid shell quoting issues.
+
+- **HEREDOC `<<'EOF'` does not expand `$(...)`.** Quoted heredocs treat the
+  body literally, so `$(cat /tmp/yt_upload_feedback.md)` inside `<<'BODY_EOF'`
+  would appear verbatim instead of inlining the file. Step 6 composes the note
+  body inline via a shell group inside command substitution
+  (`content="$({ echo ...; cat ...; })"`) to interpolate cleanly without an
+  intermediate tmp file. Use the same pattern for any future composition step.
 
 - **Auto-dubbing cannot be enabled via the YouTube Data API v3.** It must be
   toggled in YouTube Studio → Settings → Content → Automatic dubbing. Setting

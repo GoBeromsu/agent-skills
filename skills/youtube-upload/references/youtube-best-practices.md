@@ -85,14 +85,31 @@ Assess spoken English based on CEFR framework (tracktest.eu/english-levels-cefr)
 - End-of-sentence trailing: "so, yeah" → replace with clean transition
 
 ### Feedback Template
+
+The English assessment uses four H4 subsections, each carrying a distinct
+responsibility. `assets/note-template.md` holds the canonical structural
+contract; this block is the rubric for what content goes into each subsection.
+
 ```
 ### English (CEFR Assessment)
 **Level**: B1후반 / B2초반 (estimated from this video)
-**잘한 점**:
-- [specific examples of good usage from transcript]
-**개선 포인트**:
-- [specific grammar/vocab issues with corrections]
-**Youglish 추천**: [words to practice pronunciation]
+**Youglish 추천**: [3-5 words to practice pronunciation]
+
+#### 잘한 점
+- [specific examples of good usage; sub-bullet for transcript citation]
+
+#### 아쉬운 점
+- [high-level patterns only — concrete fixes go under 영어 표현 교정]
+
+#### Paraphrase 추천
+- 원문: "[verbatim phrase]"
+  - 대안1 / 대안2 / 왜
+  Use for phrases that are NOT wrong but feel awkward, repetitive, or low-register.
+
+#### 영어 표현 교정
+- "[wrong]" → "[corrected]"
+  - 이유: [grammar rule]
+  Use for objectively wrong grammar/articles/tense/collocation.
 ```
 
 ## Tech/Developer Niche (Obsidian/AI/Coding)
