@@ -403,25 +403,6 @@
 
 ---
 
-## P13. 맺음말 (closing)
-
-```html
-<section id="closing" style="margin-top: 80px; padding-top: 48px; border-top: var(--border-thin);">
-  <span class="section-label">맺음말</span>
-  <h2>핵심 문장 모음</h2>
-  <ul>
-    <li>[Playbook 전체에서 인상적인 take-away 1]</li>
-    <li>[take-away 2]</li>
-    <li>...</li>
-  </ul>
-  <p style="margin-top: 32px; color: var(--gray-400); font-size: 13px;">
-    이 Playbook은 [1순위 자료]를 1순위 소스로 하고 [그 외 자료]를 참고해 작성되었습니다. [부분별 권위 hedging 한 줄]. 시각 디자인은 Upstage 디자인 토큰을 따릅니다.
-  </p>
-</section>
-```
-
----
-
 ## 13. 톤 / 어조 일관 유지
 
 본문 작성 시 다음 톤 규칙:

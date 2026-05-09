@@ -101,7 +101,7 @@ allowed-tools: Read, Write, Glob, Grep, Bash, WebFetch
 - `<!-- BRAND -->` 영역 → 주제명
 - `<!-- HERO -->` 영역 → 큰 타이틀 + lede
 - `<!-- SIDEBAR_NAV -->` 영역 → 좌측 네비
-- `<!-- CONTENT_SECTIONS -->` 영역 → Intro + Pillar 1..N + 맺음말
+- `<!-- CONTENT_SECTIONS -->` 영역 → Intro + Pillar 1..N
 
 각 sub-section의 HTML은 `references/html-patterns.md`의 패턴을 그대로 따른다 — **새 디자인을 만들지 않는다**. 새 색상·폰트 도입 금지.
 
