@@ -82,8 +82,8 @@ allowed-tools: Read, Write, Glob, Grep, Bash, WebFetch
 각 sub-section마다 시각적 요소가 도움될 자리에 **이미지 플레이스홀더**를 둔다. 자동으로 이미지를 만들지 않고, 빈 공간 + 안내문만 넣는다.
 
 두 종류:
-- `figure--screenshot` — 📷 SCREENSHOT (실제 툴/플랫폼 화면 캡처가 들어갈 자리)
-- `figure--illustration` — 🎨 ILLUSTRATION (개념 다이어그램이 들어갈 자리)
+- `figure--screenshot` — SCREENSHOT (실제 툴/플랫폼 화면 캡처가 들어갈 자리)
+- `figure--illustration` — ILLUSTRATION (개념 다이어그램이 들어갈 자리)
 
 각 placeholder에 다음 3가지를 명시:
 - **들어갈 이미지** (구체 묘사)
@@ -134,6 +134,7 @@ allowed-tools: Read, Write, Glob, Grep, Bash, WebFetch
 - [ ] 좌측 sticky 네비가 모든 sub-section에 매핑되는가 (앵커 ID 일치)
 - [ ] 각 pillar에 [활동] 섹션이 있는가
 - [ ] 이미지 플레이스홀더가 각 pillar 최소 2개 이상 들어갔는가
+- [ ] 본문·라벨·callout 어디에도 이모지가 들어가지 않았는가 (텍스트만)
 
 ---
 
@@ -191,3 +192,4 @@ allowed-tools: Read, Write, Glob, Grep, Bash, WebFetch
 - 비공식 정의를 단정형으로 서술
 - 이미지 자동 생성 (placeholder만 둠 — 실제 이미지는 사용자가 채움)
 - 한 sub-section이 600 단어 초과 (압축하거나 둘로 나눔)
+- 이모지 사용 (본문·section-label·figure-tag·callout 모두 금지 — 텍스트만)
